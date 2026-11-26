@@ -161,7 +161,7 @@ class SettingsActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val ver = prefs.getString("bible_version", "RV1909") ?: "RV1909"
         val targetLang = if (BibleData.isEnglishVersion(ver)) "en" else "es"
         tts?.language = if (targetLang == "en") Locale.US else Locale("es", "ES")
-        vocesFiltradas = (tts?.voices ?: emptySet()).filter { it.locale.language == targetLang }
+        vocesFiltradas = (tts?.voices ?: emptySet()).filter { it.locale.language == targetLang && (targetLang != "en" || it.locale.country.equals("US", ignoreCase = true)) }
             .sortedWith(compareBy({ it.isNetworkConnectionRequired }, { it.locale.country }, { it.name }))
         val etiquetas = if (vocesFiltradas.isEmpty()) listOf(if (targetLang == "en") "Default Voice (English)" else "Voz predeterminada (Español)") else
             vocesFiltradas.mapIndexed { i, v -> "${if (targetLang == "en") "Voice" else "Voz"} ${i+1} - ${v.locale.displayCountry} [${v.name.takeLast(10)}]" }

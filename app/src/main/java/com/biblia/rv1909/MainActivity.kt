@@ -121,10 +121,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         versionActual = ver
         libros = BibleData.obtenerLibros(this, versionActual)
         val prevBook = libroIdx.coerceIn(0, libros.size - 1)
-        val prevCap = capIdx
+        val prevCap = capIdx.coerceIn(0, libros[prevBook].capitulos.size - 1)
+        libroIdx = prevBook
+        capIdx = prevCap
         spinnerLibro.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, libros.map { it.nombre })
         spinnerLibro.setSelection(prevBook, false)
         actualizarSpinnerCapitulos(prevCap)
+        adapter.actualizarDatos(libros[libroIdx].capitulos[capIdx], versiculoActual)
+        tvEstado.text = "[$versionActual] ${libros[libroIdx].nombre} ${capIdx + 1}:${versiculoActual + 1}"
         if (ttsListo) aplicarConfiguracionTTS()
     }
 
@@ -201,7 +205,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tts?.setSpeechRate(prefs.getFloat("speech_rate", 1.0f))
         tts?.setPitch(prefs.getFloat("speech_pitch", 1.0f))
         val savedVoice = prefs.getString("voice_name_$targetLang", null) ?: prefs.getString("voice_name", null)
-        val voces = (tts?.voices ?: emptySet()).filter { it.locale.language == targetLang }
+        val voces = (tts?.voices ?: emptySet()).filter { it.locale.language == targetLang && (targetLang != "en" || it.locale.country.equals("US", ignoreCase = true)) }
         val match = voces.firstOrNull { it.name == savedVoice } ?: voces.firstOrNull { !it.isNetworkConnectionRequired } ?: voces.firstOrNull()
         if (match != null) tts?.voice = match
     }
