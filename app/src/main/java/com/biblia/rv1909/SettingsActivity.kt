@@ -143,7 +143,7 @@ class SettingsActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         btnProbar.setOnClickListener {
             val ver = prefs.getString("bible_version", "RV1909") ?: "RV1909"
             val isEnVer = BibleData.isEnglishVersion(ver)
-            tts?.language = if (isEnVer) Locale.US else Locale("es", "ES")
+            if (tts?.voice == null) tts?.language = if (isEnVer) Locale.US else Locale("es", "ES")
             val sample = if (isEnVer) "In the beginning God created the heaven and the earth." else "En el principio creó Dios los cielos y la tierra."
             tts?.speak(sample, TextToSpeech.QUEUE_FLUSH, null, "test")
         }
@@ -171,7 +171,7 @@ class SettingsActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         spinnerVoces.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
                 if (pos in vocesFiltradas.indices) {
-                    tts?.voice = vocesFiltradas[pos]
+                    tts?.setVoice(vocesFiltradas[pos])
                     prefs.edit().putString("voice_name_$targetLang", vocesFiltradas[pos].name).commit()
                 }
             }
