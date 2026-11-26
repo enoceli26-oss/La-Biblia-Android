@@ -156,7 +156,22 @@ class SettingsActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tts = TextToSpeech(this, this)
     }
 
+    private fun actualizarTituloVoz() {
+        fun recorrer(v: View) {
+            if (v is TextView && v !is Button) {
+                val t = v.text?.toString() ?: ""
+                if (t.contains("Seleccionar voz", true) || t.contains("Select Voice", true) || t.contains("(Español)", true)) {
+                    v.text = if (isEn) "Select Voice:" else "Seleccionar voz:"
+                }
+            } else if (v is ViewGroup) {
+                for (i in 0 until v.childCount) recorrer(v.getChildAt(i))
+            }
+        }
+        recorrer(window.decorView)
+    }
+
     private fun cargarVocesTTS() {
+        actualizarTituloVoz()
         val prefs = getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE)
         val ver = prefs.getString("bible_version", "RV1909") ?: "RV1909"
         val targetLang = if (BibleData.isEnglishVersion(ver)) "en" else "es"
