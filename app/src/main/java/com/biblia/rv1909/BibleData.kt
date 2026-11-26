@@ -52,18 +52,25 @@ object BibleData {
 
     fun isEnglishVersion(version: String): Boolean = version in listOf("KJV", "WEB")
 
-    fun obtenerLibros(context: Context, version: String = "RV1909", lang: String? = null): List<Libro> {
-        val effLang = lang ?: context.getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE).getString("app_lang", "es") ?: "es"
+    fun obtenerLibros(context: Context, version: String = "RV1909"): List<Libro> {
+        val effLang = try {
+            context.getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE).getString("app_lang", "es") ?: "es"
+        } catch (_: Exception) { "es" }
         val key = "${version}_$effLang"
         cache[key]?.let { return it }
         val nombres = if (effLang == "en") nombresLibrosEn else nombresLibrosEs
-        val rawList = when (version) {
-            "RV1960" -> cargarPorClave(context, "biblia_rv1960.json", nombresLibrosEs)
-            "KJV" -> cargarArray(context, "biblia_kjv.json")
-            "WEB" -> cargarPorClave(context, "biblia_web.json", nombresLibrosEn)
-            else -> cargarArray(context, "biblia_rv1909.json")
+        val rawList = try {
+            when (version) {
+                "RV1960" -> cargarPorClave(context, "biblia_rv1960.json", nombresLibrosEs)
+                "KJV" -> cargarArray(context, "biblia_kjv.json")
+                "WEB" -> cargarPorClave(context, "biblia_web.json", nombresLibrosEn)
+                else -> cargarArray(context, "biblia_rv1909.json")
+            }
+        } catch (_: Exception) {
+            cargarArray(context, "biblia_rv1909.json")
         }
-        val finalList = rawList.mapIndexed { idx, lib ->
+        val safeRaw = if (rawList.isNotEmpty()) rawList else cargarArray(context, "biblia_rv1909.json")
+        val finalList = safeRaw.mapIndexed { idx, lib ->
             Libro(if (idx < nombres.size) nombres[idx] else lib.nombre, lib.capitulos)
         }
         cache[key] = finalList
@@ -72,7 +79,7 @@ object BibleData {
 
     private fun cargarArray(context: Context, assetName: String): List<Libro> {
         val raw = context.assets.open(assetName).bufferedReader(Charsets.UTF_8).use { it.readText() }
-        val jsonArray = JSONArray(raw.removePrefix("\uFEFF"))
+        val jsonArray = JSONArray(raw.removePrefix("\uFEFF").trim())
         val lista = mutableListOf<Libro>()
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
@@ -90,28 +97,30 @@ object BibleData {
         return lista
     }
 
+    private fun parseBooksArray(arr: JSONArray): List<Libro> {
+        val lista = mutableListOf<Libro>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val capsArr = obj.getJSONArray("chapters")
+            val caps = mutableListOf<List<String>>()
+            for (c in 0 until capsArr.length()) {
+                val cObj = capsArr.getJSONObject(c)
+                val vArr = cObj.getJSONArray("verses")
+                val vers = mutableListOf<String>()
+                for (v in 0 until vArr.length()) vers.add(vArr.getJSONObject(v).getString("text").trim())
+                caps.add(vers)
+            }
+            lista.add(Libro(obj.optString("name", "Book ${i+1}"), caps))
+        }
+        return lista
+    }
+
     private fun cargarPorClave(context: Context, assetName: String, refNames: List<String>): List<Libro> {
         val raw = context.assets.open(assetName).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val text = raw.removePrefix("\uFEFF").trim()
-        if (text.startsWith("[")) {
-            val arr = JSONArray(text)
-            val lista = mutableListOf<Libro>()
-            for (i in 0 until arr.length()) {
-                val obj = arr.getJSONObject(i)
-                val capsArr = obj.getJSONArray("chapters")
-                val caps = mutableListOf<List<String>>()
-                for (c in 0 until capsArr.length()) {
-                    val cObj = capsArr.getJSONObject(c)
-                    val vArr = cObj.getJSONArray("verses")
-                    val vers = mutableListOf<String>()
-                    for (v in 0 until vArr.length()) vers.add(vArr.getJSONObject(v).getString("text").trim())
-                    caps.add(vers)
-                }
-                lista.add(Libro(obj.optString("name", "Book ${i+1}"), caps))
-            }
-            return lista
-        }
+        if (text.startsWith("[")) return parseBooksArray(JSONArray(text))
         val root = JSONObject(text)
+        if (root.has("books")) return parseBooksArray(root.getJSONArray("books"))
         val mapaClaves = mutableMapOf<String, String>()
         val keys = root.keys()
         while (keys.hasNext()) { val k = keys.next(); mapaClaves[normalizar(k)] = k }
