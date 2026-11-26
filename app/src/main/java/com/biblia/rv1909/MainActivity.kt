@@ -128,6 +128,24 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (ttsListo) aplicarConfiguracionTTS()
     }
 
+    private fun configurarSpinners() {
+        spinnerLibro.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, libros.map { it.nombre })
+        spinnerLibro.setSelection(libroIdx.coerceIn(0, libros.size - 1), false)
+        spinnerLibro.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                if (pos != libroIdx) { libroIdx = pos; capIdx = 0; versiculoActual = 0; actualizarSpinnerCapitulos(0) }
+            }
+            override fun onNothingSelected(p: AdapterView<*>?) {}
+        }
+        spinnerCapitulo.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                if (pos != capIdx) { capIdx = pos; versiculoActual = 0; cargarCapitulo() }
+            }
+            override fun onNothingSelected(p: AdapterView<*>?) {}
+        }
+        actualizarSpinnerCapitulos(capIdx)
+    }
+
     private fun actualizarSpinnerCapitulos(seleccion: Int) {
         val prefs = getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE)
         val isEn = prefs.getString("app_lang", "es") == "en"
