@@ -205,7 +205,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tts?.setSpeechRate(prefs.getFloat("speech_rate", 1.0f))
         tts?.setPitch(prefs.getFloat("speech_pitch", 1.0f))
         val savedVoice = prefs.getString("voice_name_$targetLang", null) ?: prefs.getString("voice_name", null)
-        val voces = (tts?.voices ?: emptySet()).filter { it.locale.language == targetLang && (targetLang != "en" || it.locale.country.equals("US", ignoreCase = true)) }
+        val voces = (tts?.voices ?: emptySet()).filter { it.locale.language.equals(targetLang, true) && (targetLang != "en" || it.locale.country.equals("US", true)) && (targetLang != "en" || it.locale.country.equals("US", ignoreCase = true)) }
         val match = voces.firstOrNull { it.name == savedVoice } ?: voces.firstOrNull { !it.isNetworkConnectionRequired } ?: voces.firstOrNull()
         if (match != null) tts?.voice = match
     }

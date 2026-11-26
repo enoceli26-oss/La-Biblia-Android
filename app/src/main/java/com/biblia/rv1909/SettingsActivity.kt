@@ -182,3 +182,23 @@ class SettingsActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) { if (status == TextToSpeech.SUCCESS) cargarVocesTTS() }
     override fun onDestroy() { tts?.stop(); tts?.shutdown(); super.onDestroy() }
 }
+        val savedName = prefs.getString("voice_name_$targetLang", null)
+        val initIdx = vocesFiltradas.indexOfFirst { it.name == savedName }.coerceAtLeast(0)
+        if (initIdx in vocesFiltradas.indices) {
+            spinnerVoces.setSelection(initIdx, false)
+            tts?.voice = vocesFiltradas[initIdx]
+            prefs.edit().putString("voice_name_$targetLang", vocesFiltradas[initIdx].name).commit()
+        }
+        spinnerVoces.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                if (pos in vocesFiltradas.indices) {
+                    tts?.voice = vocesFiltradas[pos]
+                    prefs.edit().putString("voice_name_$targetLang", vocesFiltradas[pos].name).commit()
+                }
+            }
+            override fun onNothingSelected(p: AdapterView<*>?) {}
+        }
+    }
+    override fun onInit(status: Int) { if (status == TextToSpeech.SUCCESS) cargarVocesTTS() }
+    override fun onDestroy() { tts?.stop(); tts?.shutdown(); super.onDestroy() }
+}

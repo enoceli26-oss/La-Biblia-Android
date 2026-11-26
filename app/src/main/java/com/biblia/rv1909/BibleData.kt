@@ -63,7 +63,7 @@ object BibleData {
             when (version) {
                 "RV1960" -> cargarPorClave(context, "biblia_rv1960.json", nombresLibrosEs)
                 "KJV" -> cargarArray(context, "biblia_kjv.json")
-                "WEB" -> cargarPorClave(context, "biblia_web.json", nombresLibrosEn)
+                "WEB" -> cargarArray(context, "biblia_web.json")
                 else -> cargarArray(context, "biblia_rv1909.json")
             }
         } catch (_: Exception) {
