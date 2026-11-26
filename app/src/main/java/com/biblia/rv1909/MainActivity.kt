@@ -124,9 +124,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val prevCap = capIdx.coerceIn(0, libros[prevBook].capitulos.size - 1)
         libroIdx = prevBook
         capIdx = prevCap
+        val oldBookListener = spinnerLibro.onItemSelectedListener
+        spinnerLibro.onItemSelectedListener = null
         spinnerLibro.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, libros.map { it.nombre })
         spinnerLibro.setSelection(prevBook, false)
+        spinnerLibro.onItemSelectedListener = oldBookListener
+        val oldCapListener = spinnerCapitulo.onItemSelectedListener
+        spinnerCapitulo.onItemSelectedListener = null
         actualizarSpinnerCapitulos(prevCap)
+        spinnerCapitulo.onItemSelectedListener = oldCapListener
         adapter.actualizarDatos(libros[libroIdx].capitulos[capIdx], versiculoActual)
         tvEstado.text = "[$versionActual] ${libros[libroIdx].nombre} ${capIdx + 1}:${versiculoActual + 1}"
         if (ttsListo) aplicarConfiguracionTTS()
