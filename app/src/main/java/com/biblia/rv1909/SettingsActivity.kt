@@ -142,7 +142,9 @@ class SettingsActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         btnProbar.text = if (isEn) "Test Voice" else "Probar Voz"
         btnProbar.setOnClickListener {
             val ver = prefs.getString("bible_version", "RV1909") ?: "RV1909"
-            val sample = if (BibleData.isEnglishVersion(ver) || isEn) "In the beginning God created the heaven and the earth." else "En el principio creó Dios los cielos y la tierra."
+            val isEnVer = BibleData.isEnglishVersion(ver)
+            tts?.language = if (isEnVer) Locale.US else Locale("es", "ES")
+            val sample = if (isEnVer) "In the beginning God created the heaven and the earth." else "En el principio creó Dios los cielos y la tierra."
             tts?.speak(sample, TextToSpeech.QUEUE_FLUSH, null, "test")
         }
         val btnMas = findViewById<Button>(R.id.btnMasVoces)
@@ -157,7 +159,8 @@ class SettingsActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun cargarVocesTTS() {
         val prefs = getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE)
         val ver = prefs.getString("bible_version", "RV1909") ?: "RV1909"
-        val targetLang = if (BibleData.isEnglishVersion(ver) || isEn) "en" else "es"
+        val targetLang = if (BibleData.isEnglishVersion(ver)) "en" else "es"
+        tts?.language = if (targetLang == "en") Locale.US else Locale("es", "ES")
         vocesFiltradas = (tts?.voices ?: emptySet()).filter { it.locale.language == targetLang }
             .sortedWith(compareBy({ it.isNetworkConnectionRequired }, { it.locale.country }, { it.name }))
         val etiquetas = if (vocesFiltradas.isEmpty()) listOf(if (targetLang == "en") "Default Voice (English)" else "Voz predeterminada (Español)") else

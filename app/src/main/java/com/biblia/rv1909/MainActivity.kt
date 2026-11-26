@@ -117,59 +117,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onResume() {
         super.onResume()
         val prefs = getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE)
-        val nuevaVer = prefs.getString("bible_version", "RV1909") ?: "RV1909"
-        if (nuevaVer != versionActual) {
-            versionActual = nuevaVer
-            libros = BibleData.obtenerLibros(this, versionActual)
-            libroIdx = libroIdx.coerceIn(0, libros.lastIndex)
-            capIdx = capIdx.coerceIn(0, libros[libroIdx].capitulos.lastIndex)
-            versiculoActual = versiculoActual.coerceIn(0, libros[libroIdx].capitulos[capIdx].lastIndex)
-            cargarCapitulo()
-        }
-        aplicarConfiguracionTTS()
-        adapter.notifyDataSetChanged()
-    }
-
-    private fun configurarSpinners() {
+        val ver = prefs.getString("bible_version", "RV1909") ?: "RV1909"
+        versionActual = ver
+        libros = BibleData.obtenerLibros(this, versionActual)
+        val prevBook = libroIdx.coerceIn(0, libros.size - 1)
+        val prevCap = capIdx
         spinnerLibro.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, libros.map { it.nombre })
-        spinnerLibro.setSelection(libroIdx, false)
-        actualizarSpinnerCapitulos(capIdx)
-
-        spinnerLibro.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
-                if (pos != libroIdx) { pausarLectura(); libroIdx = pos; capIdx = 0; versiculoActual = 0; actualizarSpinnerCapitulos(0) }
-            }
-            override fun onNothingSelected(p: AdapterView<*>?) {}
-        }
-        spinnerCapitulo.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
-                if (pos != capIdx) {
-                    val estabaSonando = reproduciendo; tts?.stop(); capIdx = pos; versiculoActual = 0; cargarCapitulo()
-                    if (estabaSonando) { reproduciendo = true; hablarVersiculoActual() }
-                }
-            }
-            override fun onNothingSelected(p: AdapterView<*>?) {}
-        }
-    }
-
-    private fun actualizarSpinnerCapitulos(seleccion: Int) {
-        val numCaps = libros[libroIdx].capitulos.size
-        spinnerCapitulo.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, (1..numCaps).map { "Cap. $it" })
-        spinnerCapitulo.setSelection(seleccion.coerceIn(0, numCaps - 1), false)
-        cargarCapitulo()
-    }
-
-    private fun cargarCapitulo() {
-        getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE).edit().putInt("last_book", libroIdx).putInt("last_chapter", capIdx).apply()
-        adapter.actualizarDatos(libros[libroIdx].capitulos[capIdx], versiculoActual)
-        recycler.scrollToPosition(versiculoActual)
-        tvEstado.text = "[$versionActual] ${libros[libroIdx].nombre} ${capIdx + 1}:${versiculoActual + 1}"
-    }
-
-    private fun actualizarSeleccion() {
-        adapter.setVersiculoActivo(versiculoActual)
-        recycler.smoothScrollToPosition(versiculoActual)
-        tvEstado.text = "[$versionActual] ${libros[libroIdx].nombre} ${capIdx + 1}:${versiculoActual + 1}"
+        spinnerLibro.setSelection(prevBook, false)
+        actualizarSpinnerCapitulos(prevCap)
+        if (ttsListo) aplicarConfiguracionTTS()
     }
 
     override fun onInit(status: Int) {
@@ -195,11 +151,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun aplicarConfiguracionTTS() {
-        val engine = tts ?: return
         val prefs = getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE)
-        engine.setSpeechRate(prefs.getFloat("speech_rate", 1.0f))
-        engine.setPitch(prefs.getFloat("speech_pitch", 1.0f))
-        prefs.getString("voice_name", null)?.let { saved -> engine.voices?.firstOrNull { it.name == saved }?.let { engine.voice = it } }
+        val isEnVer = BibleData.isEnglishVersion(versionActual)
+        val targetLang = if (isEnVer) "en" else "es"
+        tts?.language = if (isEnVer) Locale.US else Locale("es", "ES")
+        tts?.setSpeechRate(prefs.getFloat("speech_rate", 1.0f))
+        tts?.setPitch(prefs.getFloat("speech_pitch", 1.0f))
+        val savedVoice = prefs.getString("voice_name_$targetLang", null) ?: prefs.getString("voice_name", null)
+        val voces = (tts?.voices ?: emptySet()).filter { it.locale.language == targetLang }
+        val match = voces.firstOrNull { it.name == savedVoice } ?: voces.firstOrNull { !it.isNetworkConnectionRequired } ?: voces.firstOrNull()
+        if (match != null) tts?.voice = match
     }
 
     private fun iniciarLectura() {
