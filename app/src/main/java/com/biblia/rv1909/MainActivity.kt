@@ -222,7 +222,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         } else {
                             pausarLectura()
                         }
-                        else pausarLectura()
                     }
                 }
             })
