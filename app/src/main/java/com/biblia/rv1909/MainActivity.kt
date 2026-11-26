@@ -1,6 +1,7 @@
 package com.biblia.rv1909
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -61,6 +62,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             @Suppress("DEPRECATION")
             startActivityForResult(Intent(this, ConcordanceActivity::class.java), 100)
         }
+        findViewById<ImageButton>(R.id.btnFavoritos).setOnClickListener {
+            pausarLectura()
+            @Suppress("DEPRECATION")
+            startActivityForResult(Intent(this, FavoritesActivity::class.java), 101)
+        }
 
         versionActual = prefs.getString("bible_version", "RV1909") ?: "RV1909"
         libros = BibleData.obtenerLibros(this, versionActual)
@@ -92,7 +98,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 100 && resultCode == Activity.RESULT_OK && data != null) {
+        if ((requestCode == 100 || requestCode == 101) && resultCode == Activity.RESULT_OK && data != null) {
+            data.getStringExtra("version")?.let { ver ->
+                if (ver != versionActual) {
+                    versionActual = ver
+                    getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE).edit().putString("bible_version", versionActual).apply()
+                    libros = BibleData.obtenerLibros(this, versionActual)
+                }
+            }
             libroIdx = data.getIntExtra("libroIdx", 0).coerceIn(0, libros.lastIndex)
             capIdx = data.getIntExtra("capIdx", 0).coerceIn(0, libros[libroIdx].capitulos.lastIndex)
             versiculoActual = data.getIntExtra("verIdx", 0).coerceIn(0, libros[libroIdx].capitulos[capIdx].lastIndex)
@@ -220,10 +233,34 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         override fun getItemCount() = lista.size
         override fun onBindViewHolder(holder: VH, position: Int) {
             val fontSize = getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE).getFloat("font_size", 18f)
+            val idFav = FavoritesManager.generarId(versionActual, libroIdx, capIdx, position)
+            val esFav = FavoritesManager.esFavorito(this@MainActivity, idFav)
+            val estrella = if (esFav) "★ " else ""
             holder.tv.textSize = fontSize
-            holder.tv.text = "${position + 1}. ${lista[position]}"
+            holder.tv.text = "$estrella${position + 1}. ${lista[position]}"
             holder.container.setBackgroundColor(if (position == activo) Color.parseColor("#334A90E2") else Color.TRANSPARENT)
+
             holder.itemView.setOnClickListener { onClick(position) }
+            holder.itemView.setOnLongClickListener {
+                val cita = "${libros[libroIdx].nombre} ${capIdx + 1}:${position + 1}"
+                val texto = lista[position]
+                val opcionFav = if (esFav) "🗑️ Quitar de Favoritos" else "⭐ Guardar en Favoritos"
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("$cita ($versionActual)")
+                    .setItems(arrayOf(opcionFav, "📤 Compartir cita")) { _, which ->
+                        if (which == 0) {
+                            val agregado = FavoritesManager.alternarFavorito(
+                                this@MainActivity,
+                                VersiculoFavorito(idFav, versionActual, libroIdx, capIdx, position, cita, texto)
+                            )
+                            Toast.makeText(this@MainActivity, if (agregado) "Guardado en Favoritos" else "Quitado de Favoritos", Toast.LENGTH_SHORT).show()
+                            notifyItemChanged(position)
+                        } else {
+                            FavoritesManager.compartirCita(this@MainActivity, cita, versionActual, texto)
+                        }
+                    }.show()
+                true
+            }
         }
     }
 }
