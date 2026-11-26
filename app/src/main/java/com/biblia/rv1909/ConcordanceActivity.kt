@@ -3,7 +3,12 @@ package com.biblia.rv1909
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.BackgroundColorSpan
+import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,8 +17,11 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.text.Normalizer
 
 class ConcordanceActivity : AppCompatActivity() {
+    private var consultaActual = ""
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_concordance)
@@ -35,7 +43,8 @@ class ConcordanceActivity : AppCompatActivity() {
                 Toast.makeText(this, "Escribe al menos 2 letras", Toast.LENGTH_SHORT).show()
                 return
             }
-            val res = BibleData.buscarConcordancia(this, version, query)
+            consultaActual = query
+            val res = BibleData.buscarConcordancia(this, version, query, 500)
             tvCount.text = "Encontrados ${res.size} versículos en $version para \"$query\""
             recycler.adapter = ResultadosAdapter(res) { item ->
                 val data = Intent().apply {
@@ -54,6 +63,9 @@ class ConcordanceActivity : AppCompatActivity() {
         }
     }
 
+    private fun norm(s: String): String =
+        Normalizer.normalize(s, Normalizer.Form.NFD).replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "").lowercase()
+
     inner class ResultadosAdapter(private val lista: List<ResultadoConcordancia>, private val onClick: (ResultadoConcordancia) -> Unit) :
         RecyclerView.Adapter<ResultadosAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
@@ -64,8 +76,19 @@ class ConcordanceActivity : AppCompatActivity() {
         override fun getItemCount() = lista.size
         override fun onBindViewHolder(holder: VH, position: Int) {
             val item = lista[position]
+            val completo = "${item.cita} — ${item.texto}"
+            val span = SpannableString(completo)
+            val qNorm = norm(consultaActual)
+            val tNorm = norm(completo)
+            var idx = tNorm.indexOf(qNorm)
+            while (idx >= 0 && qNorm.isNotEmpty()) {
+                val end = (idx + qNorm.length).coerceAtMost(completo.length)
+                span.setSpan(BackgroundColorSpan(Color.parseColor("#FFD54F")), idx, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                span.setSpan(ForegroundColorSpan(Color.BLACK), idx, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                idx = tNorm.indexOf(qNorm, end)
+            }
             holder.tv.textSize = 16f
-            holder.tv.text = "${item.cita} — ${item.texto}"
+            holder.tv.text = span
             holder.itemView.setOnClickListener { onClick(item) }
         }
     }
