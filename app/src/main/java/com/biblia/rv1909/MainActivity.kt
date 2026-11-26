@@ -128,6 +128,31 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (ttsListo) aplicarConfiguracionTTS()
     }
 
+    private fun actualizarSpinnerCapitulos(seleccion: Int) {
+        val prefs = getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE)
+        val isEn = prefs.getString("app_lang", "es") == "en"
+        val prefix = if (isEn) "Ch." else "Cap."
+        val numCaps = libros[libroIdx].capitulos.size
+        spinnerCapitulo.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, (1..numCaps).map { "$prefix $it" })
+        spinnerCapitulo.setSelection(seleccion.coerceIn(0, numCaps - 1), false)
+        capIdx = seleccion.coerceIn(0, numCaps - 1)
+        cargarCapitulo()
+    }
+
+    private fun cargarCapitulo() {
+        val vers = libros[libroIdx].capitulos[capIdx]
+        versiculoActual = versiculoActual.coerceIn(0, (vers.size - 1).coerceAtLeast(0))
+        adapter.actualizarDatos(vers, versiculoActual)
+        recycler.scrollToPosition(versiculoActual)
+        tvEstado.text = "[$versionActual] ${libros[libroIdx].nombre} ${capIdx + 1}:${versiculoActual + 1}"
+    }
+
+    private fun actualizarSeleccion() {
+        adapter.setVersiculoActivo(versiculoActual)
+        recycler.smoothScrollToPosition(versiculoActual)
+        tvEstado.text = "[$versionActual] ${libros[libroIdx].nombre} ${capIdx + 1}:${versiculoActual + 1}"
+    }
+
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale("es", "ES")
