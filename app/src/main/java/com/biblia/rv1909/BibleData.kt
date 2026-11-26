@@ -11,7 +11,7 @@ data class ResultadoConcordancia(val libroIdx: Int, val capIdx: Int, val verIdx:
 object BibleData {
     private val cache = mutableMapOf<String, List<Libro>>()
 
-    val nombresLibros = listOf(
+    val nombresLibrosEs = listOf(
         "Génesis", "Éxodo", "Levítico", "Números", "Deuteronomio",
         "Josué", "Jueces", "Rut", "1 Samuel", "2 Samuel",
         "1 Reyes", "2 Reyes", "1 Crónicas", "2 Crónicas", "Esdras",
@@ -28,23 +28,55 @@ object BibleData {
         "3 Juan", "Judas", "Apocalipsis"
     )
 
+    val nombresLibrosEn = listOf(
+        "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
+        "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel",
+        "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles", "Ezra",
+        "Nehemiah", "Esther", "Job", "Psalms", "Proverbs",
+        "Ecclesiastes", "Song of Solomon", "Isaiah", "Jeremiah", "Lamentations",
+        "Ezekiel", "Daniel", "Hosea", "Joel", "Amos",
+        "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk",
+        "Zephaniah", "Haggai", "Zechariah", "Malachi",
+        "Matthew", "Mark", "Luke", "John", "Acts",
+        "Romans", "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians",
+        "Philippians", "Colossians", "1 Thessalonians", "2 Thessalonians",
+        "1 Timothy", "2 Timothy", "Titus", "Philemon", "Hebrews",
+        "James", "1 Peter", "2 Peter", "1 John", "2 John",
+        "3 John", "Jude", "Revelation"
+    )
+
+    val nombresLibros get() = nombresLibrosEs
+
     private fun normalizar(s: String): String =
         Normalizer.normalize(s, Normalizer.Form.NFD).replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "").lowercase().trim()
 
-    fun obtenerLibros(context: Context, version: String = "RV1909"): List<Libro> {
-        cache[version]?.let { return it }
-        val lista = if (version == "RV1960") cargarRV1960(context) else cargarRV1909(context)
-        cache[version] = lista
-        return lista
+    fun isEnglishVersion(version: String): Boolean = version in listOf("KJV", "WEB")
+
+    fun obtenerLibros(context: Context, version: String = "RV1909", lang: String? = null): List<Libro> {
+        val effLang = lang ?: context.getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE).getString("app_lang", "es") ?: "es"
+        val key = "${version}_$effLang"
+        cache[key]?.let { return it }
+        val nombres = if (effLang == "en") nombresLibrosEn else nombresLibrosEs
+        val rawList = when (version) {
+            "RV1960" -> cargarPorClave(context, "biblia_rv1960.json", nombresLibrosEs)
+            "KJV" -> cargarArray(context, "biblia_kjv.json")
+            "WEB" -> cargarPorClave(context, "biblia_web.json", nombresLibrosEn)
+            else -> cargarArray(context, "biblia_rv1909.json")
+        }
+        val finalList = rawList.mapIndexed { idx, lib ->
+            Libro(if (idx < nombres.size) nombres[idx] else lib.nombre, lib.capitulos)
+        }
+        cache[key] = finalList
+        return finalList
     }
 
-    private fun cargarRV1909(context: Context): List<Libro> {
-        val raw = context.assets.open("biblia_rv1909.json").bufferedReader(Charsets.UTF_8).use { it.readText() }
+    private fun cargarArray(context: Context, assetName: String): List<Libro> {
+        val raw = context.assets.open(assetName).bufferedReader(Charsets.UTF_8).use { it.readText() }
         val jsonArray = JSONArray(raw.removePrefix("\uFEFF"))
         val lista = mutableListOf<Libro>()
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
-            val nombre = if (i < nombresLibros.size) nombresLibros[i] else "Libro ${i+1}"
+            val nombre = if (i < nombresLibrosEs.size) nombresLibrosEs[i] else "Book ${i+1}"
             val capsJson = obj.getJSONArray("chapters")
             val caps = mutableListOf<List<String>>()
             for (c in 0 until capsJson.length()) {
@@ -58,20 +90,35 @@ object BibleData {
         return lista
     }
 
-    private fun cargarRV1960(context: Context): List<Libro> {
-        val raw = context.assets.open("biblia_rv1960.json").bufferedReader(Charsets.UTF_8).use { it.readText() }
-        val root = JSONObject(raw.removePrefix("\uFEFF"))
+    private fun cargarPorClave(context: Context, assetName: String, refNames: List<String>): List<Libro> {
+        val raw = context.assets.open(assetName).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val text = raw.removePrefix("\uFEFF").trim()
+        if (text.startsWith("[")) {
+            val arr = JSONArray(text)
+            val lista = mutableListOf<Libro>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val capsArr = obj.getJSONArray("chapters")
+                val caps = mutableListOf<List<String>>()
+                for (c in 0 until capsArr.length()) {
+                    val cObj = capsArr.getJSONObject(c)
+                    val vArr = cObj.getJSONArray("verses")
+                    val vers = mutableListOf<String>()
+                    for (v in 0 until vArr.length()) vers.add(vArr.getJSONObject(v).getString("text").trim())
+                    caps.add(vers)
+                }
+                lista.add(Libro(obj.optString("name", "Book ${i+1}"), caps))
+            }
+            return lista
+        }
+        val root = JSONObject(text)
         val mapaClaves = mutableMapOf<String, String>()
         val keys = root.keys()
-        while (keys.hasNext()) {
-            val k = keys.next()
-            mapaClaves[normalizar(k)] = k
-        }
+        while (keys.hasNext()) { val k = keys.next(); mapaClaves[normalizar(k)] = k }
         val lista = mutableListOf<Libro>()
-        for (nombreOficial in nombresLibros) {
+        for (nombreOficial in refNames) {
             val norm = normalizar(nombreOficial)
-            val claveReal = mapaClaves[norm]
-                ?: mapaClaves.entries.firstOrNull { it.key.contains(norm) || norm.contains(it.key) }?.value
+            val claveReal = mapaClaves[norm] ?: mapaClaves.entries.firstOrNull { it.key.contains(norm) || norm.contains(it.key) }?.value
             if (claveReal != null) {
                 val capsObj = root.getJSONObject(claveReal)
                 val capNums = mutableListOf<Int>()
@@ -85,13 +132,12 @@ object BibleData {
                     val vKeys = versObj.keys()
                     while (vKeys.hasNext()) vKeys.next().toIntOrNull()?.let { verNums.add(it) }
                     verNums.sort()
-                    val vers = verNums.map { versObj.getString(it.toString()).trim() }
-                    caps.add(vers)
+                    caps.add(verNums.map { versObj.getString(it.toString()).trim() })
                 }
                 lista.add(Libro(nombreOficial, caps))
             }
         }
-        return if (lista.isNotEmpty()) lista else cargarRV1909(context)
+        return if (lista.isNotEmpty()) lista else cargarArray(context, "biblia_rv1909.json")
     }
 
     fun buscarConcordancia(context: Context, version: String, consulta: String, limite: Int = 300): List<ResultadoConcordancia> {

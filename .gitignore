@@ -1,8 +1,6 @@
 .gradle/
 build/
 app/build/
-local.properties
-*.iml
 .idea/
-part*.py
-generar_app.py
+*.iml
+local.properties
