@@ -192,9 +192,36 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     runOnUiThread {
                         if (!reproduciendo) return@runOnUiThread
                         val total = libros[libroIdx].capitulos[capIdx].size
-                        if (versiculoActual + 1 < total) { versiculoActual++; hablarVersiculoActual() }
-                        else if (capIdx + 1 < libros[libroIdx].capitulos.size) spinnerCapitulo.setSelection(capIdx + 1)
-                        else if (libroIdx + 1 < libros.size) { libroIdx++; capIdx = 0; versiculoActual = 0; spinnerLibro.setSelection(libroIdx); actualizarSpinnerCapitulos(0); hablarVersiculoActual() }
+                        if (versiculoActual + 1 < total) {
+                            versiculoActual++
+                            hablarVersiculoActual()
+                        } else if (capIdx + 1 < libros[libroIdx].capitulos.size) {
+                            capIdx++
+                            versiculoActual = 0
+                            getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE).edit().putInt("last_book", libroIdx).putInt("last_cap", capIdx).apply()
+                            val oldCapL = spinnerCapitulo.onItemSelectedListener
+                            spinnerCapitulo.onItemSelectedListener = null
+                            spinnerCapitulo.setSelection(capIdx, false)
+                            spinnerCapitulo.onItemSelectedListener = oldCapL
+                            cargarCapitulo()
+                            hablarVersiculoActual()
+                        } else if (libroIdx + 1 < libros.size) {
+                            libroIdx++
+                            capIdx = 0
+                            versiculoActual = 0
+                            getSharedPreferences("biblia_prefs", Context.MODE_PRIVATE).edit().putInt("last_book", libroIdx).putInt("last_cap", 0).apply()
+                            val oldBookL = spinnerLibro.onItemSelectedListener
+                            spinnerLibro.onItemSelectedListener = null
+                            spinnerLibro.setSelection(libroIdx, false)
+                            spinnerLibro.onItemSelectedListener = oldBookL
+                            val oldCapL = spinnerCapitulo.onItemSelectedListener
+                            spinnerCapitulo.onItemSelectedListener = null
+                            actualizarSpinnerCapitulos(0)
+                            spinnerCapitulo.onItemSelectedListener = oldCapL
+                            hablarVersiculoActual()
+                        } else {
+                            pausarLectura()
+                        }
                         else pausarLectura()
                     }
                 }
