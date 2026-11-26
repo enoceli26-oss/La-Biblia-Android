@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:fitsSystemWindows="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <Button android:id="@+id/btnVolverConc" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="←" />
+        <EditText android:id="@+id/etBuscar" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:hint="Buscar palabra o frase..." android:imeOptions="actionSearch" android:inputType="text" android:singleLine="true" />
+        <Button android:id="@+id/btnEjecutarBuscar" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:text="Buscar" />
+    </LinearLayout>
+    <TextView android:id="@+id/tvResultadosCount" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="8dp" android:text="Escribe una palabra para buscar en toda la Biblia" android:textSize="13sp" />
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerResultados" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+</LinearLayout>
